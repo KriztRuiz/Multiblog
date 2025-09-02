@@ -1,0 +1,15 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["ES2023", "DOM"],
+    "types": ["vitest/globals", "@testing-library/jest-dom", "vite/client", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"]
+    }
+  },
+  "include": [".astro/types.d.ts", "src", "vitest.setup.ts", "astro.config.mjs", "vite.config.ts", "env.d.ts"],
+  "exclude": ["dist", "node_modules"]
+}
