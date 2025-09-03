@@ -1,30 +1,46 @@
-# build output
-dist/
-# generated types
-.astro/
-
-# dependencies
+# Dependencias
 node_modules/
 
-# logs
+# Builds y cachés
+dist/
+build/
+.astro/
+.cache/
+tmp/
+temp/
+
+# Logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+*.log
 
-
-# environment variables
+# Entorno (mantén un .env.example)
 .env
-.env.production
+.env.*
+!.env.example
 
-# macOS-specific files
-.DS_Store
+# Playwright / pruebas
+playwright-report/
+test-results/
+.playwright/
+coverage/
+storage/
 
-# jetbrains setting folder
+# SQLite (Prisma)
+backend/prisma/*.db
+backend/prisma/*.db-journal
+# ¡Sí commitea prisma/migrations!
+# prisma/migrations/**  <- NO ignorar
+
+# Salida TypeScript backend
+backend/dist/
+
+# Editores / SO
+.vscode/
 .idea/
-
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
