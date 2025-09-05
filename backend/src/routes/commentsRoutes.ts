@@ -1,21 +1,30 @@
-import { Router } from 'express';
+import { Router } from "express";
 import {
   getComments,
   getComment,
   createComment,
-  deleteComment
-} from '../controllers/commentsController';
+  deleteComment,
+} from "../controllers/commentsController";
+import { validateRequest } from "../middleware/validateRequest";
+import {
+  listCommentsValidator,
+  createCommentValidator,
+  deleteCommentValidator,
+} from "../validators/commentsValidators";
+import { authenticate } from "../middleware/authMiddleware";
 
-// mergeParams picks up postId from parent route (/posts/:postId/comments)
 const router = Router({ mergeParams: true });
 
-// Retrieve all comments (or comments for a specific post when nested)
-router.get('/', getComments);
-// Retrieve a single comment by id
-router.get('/:id', getComment);
-// Create a new comment under a post
-router.post('/', createComment);
-// Delete a comment
-router.delete('/:id', deleteComment);
+// Listar (público)
+router.get("/", listCommentsValidator, validateRequest, getComments);
+
+// Detalle (público)
+router.get("/:commentId", getComment);
+
+// Crear (REQUERIDO: token)
+router.post("/", authenticate, createCommentValidator, validateRequest, createComment);
+
+// Borrar (REQUERIDO: token, y debe ser autor)
+router.delete("/:commentId", authenticate, deleteCommentValidator, validateRequest, deleteComment);
 
 export default router;

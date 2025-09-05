@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "nodemon src/server.ts",
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
@@ -17,8 +17,9 @@
     "playwright:ui": "playwright test --ui",
     "test:e2e": "playwright test",
     "pretest:e2e": "npm run build",
-    "test:e2e:ui": "playwright test --ui"
-
+    "test:e2e:ui": "playwright test --ui",
+    "show-report": "playwright show-report",
+    "start": "ts-node src/server.ts"
   },
   "dependencies": {
     "astro": "^5.13.5"

@@ -1,29 +1,27 @@
 import { Router } from "express";
 import {
-  getPosts,
-  getPost,
-  createPost,
-  updatePost,
-  deletePost,
-  likePost
+  getPosts, getPost, createPost, updatePost, deletePost, likePost, unlikePost
 } from "../controllers/postsController";
 import { validateRequest } from "../middleware/validateRequest";
+import { authenticate, authenticateOptional } from "../middleware/authMiddleware";
 import {
-  createPostValidator,
-  updatePostValidator,
-  likePostValidator,
+  createPostValidator, updatePostValidator, likePostValidator, listPostsValidator,
 } from "../validators/postsValidators";
-import { authenticate } from "../middleware/authMiddleware";
+import commentsRouter from "./commentsRoutes";
 
 const router = Router();
 
-router.get("/", getPosts);
-router.get("/:id", getPost);
+router.get("/", authenticateOptional, listPostsValidator, validateRequest, getPosts);
+router.get("/:id", authenticateOptional, getPost);
 
 router.post("/", authenticate, createPostValidator, validateRequest, createPost);
 router.put("/:id", authenticate, updatePostValidator, validateRequest, updatePost);
 router.delete("/:id", authenticate, deletePost);
 
 router.post("/:id/like", authenticate, likePostValidator, validateRequest, likePost);
+router.delete("/:id/like", authenticate, likePostValidator, validateRequest, unlikePost);
+
+// Subrutas de comentarios
+router.use("/:postId/comments", commentsRouter);
 
 export default router;

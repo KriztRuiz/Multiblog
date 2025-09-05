@@ -44,3 +44,6 @@ backend/dist/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Ignorar el archivo de auth
+e2e/.auth/

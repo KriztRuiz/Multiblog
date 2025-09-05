@@ -28,6 +28,9 @@ export const updateUser = async (req: Request, res: Response) => {
 };
 
 export const deleteUser = async (req: Request, res: Response) => {
+    if (req.auth?.id !== req.params.id) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
   await prisma.user.delete({ where: { id: req.params.id } });
   return res.status(204).send();
 };

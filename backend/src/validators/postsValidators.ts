@@ -1,4 +1,17 @@
-import { body, param } from "express-validator";
+import { body, param, query } from "express-validator";
+
+export const listPostsValidator = [
+  query("page").optional().isInt({ min: 1 }).toInt(),
+  query("limit").optional().isInt({ min: 1, max: 50 }).toInt(),
+  query("q").optional().isString().trim().isLength({ max: 200 }),
+  query("sort").optional().isIn(["new", "old", "likes"]),
+  // Filtros avanzados
+  query("authorId").optional().isString().trim().isLength({ min: 1 }),
+  query("minLikes").optional().isInt({ min: 0 }).toInt(),
+  query("dateFrom").optional().isISO8601().toDate(),
+  query("dateTo").optional().isISO8601().toDate(),
+  query("onlyMine").optional().isBoolean().toBoolean(),
+];
 
 export const createPostValidator = [
   body("title").isString().trim().isLength({ min: 1, max: 120 }).withMessage("title 1-120 chars"),

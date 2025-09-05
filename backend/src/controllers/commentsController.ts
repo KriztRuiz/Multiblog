@@ -1,64 +1,82 @@
-import { Request, Response } from 'express';
-import { comments, posts, users } from '../models/data';
-import { Comment } from '../models/Comment';
+import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
+import { prisma } from "../utils/db";
 
-/**
- * Retrieve all comments or, if nested under a post, retrieve comments for that post.
- */
-export const getComments = (req: Request, res: Response) => {
-  const { postId } = req.params;
-  // When mounted under /posts/:postId/comments, filter by postId
-  if (postId) {
-    const postComments = comments.filter((c) => c.postId === postId);
-    return res.json(postComments);
-  }
-  return res.json(comments);
+export const getComments = async (req: Request, res: Response) => {
+  const postId = req.params.postId;
+  const page = Math.max(parseInt(String(req.query.page ?? "1"), 10) || 1, 1);
+  const limitRaw = Math.max(parseInt(String(req.query.limit ?? "10"), 10) || 10, 1);
+  const limit = Math.min(limitRaw, 50);
+  const sort = String(req.query.sort ?? "new");
+
+  const orderBy: Prisma.CommentOrderByWithRelationInput =
+    sort === "old" ? { createdAt: "asc" } : { createdAt: "desc" };
+
+  const skip = (page - 1) * limit;
+
+  const [total, data] = await Promise.all([
+    prisma.comment.count({ where: { postId } }),
+    prisma.comment.findMany({
+      where: { postId },
+      include: { author: { select: { id: true, name: true } } },
+      orderBy,
+      skip,
+      take: limit,
+    }),
+  ]);
+
+  const pages = Math.max(Math.ceil(total / limit), 1);
+
+  return res.json({
+    meta: {
+      page,
+      limit,
+      total,
+      pages,
+      hasNext: page < pages,
+      hasPrev: page > 1,
+      sort,
+    },
+    data,
+  });
 };
 
-/**
- * Retrieve a single comment by id.
- */
-export const getComment = (req: Request, res: Response) => {
-  const comment = comments.find((c) => c.id === req.params.id);
-  if (!comment) {
-    return res.status(404).json({ message: 'Comment not found' });
-  }
-  return res.json(comment);
+export const getComment = async (req: Request, res: Response) => {
+  const { postId, commentId } = req.params;
+  const c = await prisma.comment.findFirst({
+    where: { id: commentId, postId },
+    include: { author: { select: { id: true, name: true } } },
+  });
+  if (!c) return res.status(404).json({ message: "Comment not found" });
+  return res.json(c);
 };
 
-/**
- * Create a new comment for a post.
- */
-export const createComment = (req: Request, res: Response) => {
-  const { postId } = req.params;
-  const { userId, content } = req.body;
-  if (!postId || !userId || !content) {
-    return res.status(400).json({ message: 'postId, userId and content are required' });
-  }
-  const post = posts.find((p) => p.id === postId);
-  const user = users.find((u) => u.id === userId);
-  if (!post || !user) {
-    return res.status(400).json({ message: 'Invalid postId or userId' });
-  }
-  const newComment: Comment = {
-    id: Date.now().toString(),
-    postId,
-    userId,
-    content,
-    createdAt: new Date()
-  };
-  comments.push(newComment);
-  return res.status(201).json(newComment);
+export const createComment = async (req: Request, res: Response) => {
+  const userId = req.auth?.id;
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+  const postId = req.params.postId;
+  const { content } = req.body as { content: string };
+
+  const post = await prisma.post.findUnique({ where: { id: postId } });
+  if (!post) return res.status(404).json({ message: "Post not found" });
+
+  const c = await prisma.comment.create({
+    data: { content, postId, authorId: userId },
+  });
+  return res.status(201).json(c);
 };
 
-/**
- * Delete an existing comment.
- */
-export const deleteComment = (req: Request, res: Response) => {
-  const index = comments.findIndex((c) => c.id === req.params.id);
-  if (index === -1) {
-    return res.status(404).json({ message: 'Comment not found' });
-  }
-  comments.splice(index, 1);
+export const deleteComment = async (req: Request, res: Response) => {
+  const userId = req.auth?.id;
+  if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+  const { postId, commentId } = req.params;
+  const c = await prisma.comment.findFirst({ where: { id: commentId, postId } });
+  if (!c) return res.status(404).json({ message: "Comment not found" });
+
+  if (c.authorId !== userId) return res.status(403).json({ message: "Forbidden" });
+
+  await prisma.comment.delete({ where: { id: c.id } });
   return res.status(204).send();
 };

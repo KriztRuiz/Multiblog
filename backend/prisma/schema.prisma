@@ -19,16 +19,20 @@ model User {
 }
 
 model Post {
-  id        String    @id @default(cuid())
+  id        String   @id @default(cuid())
   title     String
   content   String
-  createdAt DateTime  @default(now())
+  createdAt DateTime @default(now())
   updatedAt DateTime?
   authorId  String
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments  Comment[]
   likedBy   Like[]
-  likes     Int       @default(0) // contador materializado
+  likes     Int      @default(0)
+
+  @@index([createdAt])
+  @@index([likes])
+  @@index([title])
 }
 
 model Comment {
@@ -39,6 +43,8 @@ model Comment {
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   authorId  String
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
 }
 
 model Like {

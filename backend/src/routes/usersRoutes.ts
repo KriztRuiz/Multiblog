@@ -5,6 +5,7 @@ import {
   updateUser,
   deleteUser
 } from '../controllers/usersController';
+import { authenticate } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.get('/:id', getUser);
 // Update a user
 router.put('/:id', updateUser);
 // Delete a user
-router.delete('/:id', deleteUser);
+router.delete("/:id", authenticate, deleteUser);
+
 
 export default router;

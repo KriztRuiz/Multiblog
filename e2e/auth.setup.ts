@@ -1,144 +1,46 @@
+// e2e/auth.setup.ts
 import { test, expect } from "@playwright/test";
-import fs from "node:fs";
-import path from "node:path";
-
-const AUTH_DIR = "storage";
-const AUTH_FILE = path.join(AUTH_DIR, "auth-user.json");
-
-// Permite personalizar credenciales y ruta de login vía env
-const EMAIL = process.env.TEST_USER_EMAIL ?? "admin@example.com";
-const PASSWORD = process.env.TEST_USER_PASSWORD ?? "CambiaEsto123";
-const LOGIN_URL_ENV = process.env.AUTH_LOGIN_URL ?? ""; // p.ej. "/login"
-const SKIP_AUTH = process.env.SKIP_AUTH_SETUP === "1";  // para desactivar login si aún no existe
-
-test.setTimeout(90_000);
-
-test("authenticate and save storageState (resilient)", async ({ page, baseURL }) => {
-  if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
-
-  // Si el usuario decide saltar login, guarda storage vacío y termina
-  if (SKIP_AUTH) {
-    await page.context().storageState({ path: AUTH_FILE });
-    return;
-  }
-
-  // Candidatos de ruta de login; el ENV va primero si lo das
-  const loginPaths = [
-    LOGIN_URL_ENV,
-    "/login",
-    "/auth/login",
-    "/ingresar",
-    "/acceso",
-    "/signin",
-    "/admin/login",
-    "/panel/login",
-    "/"
-  ].filter(Boolean);
-
-  // Navega hasta encontrar un formulario plausible
-  let foundForm = false;
-  for (const p of loginPaths) {
-    const resp = await page.goto(`${baseURL}${p}`);
-    // Si la navegación no fue OK o la página no contiene inputs que parezcan login, seguimos probando
-    try {
-      // ¿Hay algún input de correo/usuario visible?
-      const hasEmail = await tryFill(page, [
-        () => page.getByLabel(/email|correo/i),
-        () => page.getByPlaceholder(/email|correo/i),
-        () => page.locator('input[type="email"]'),
-        () => page.locator('input[name*="mail" i]'),
-        () => page.locator('input[name*="user" i]'),
-        () => page.locator('input[id*="mail" i]'),
-      ], EMAIL, { dryRun: true });
-
-      const hasPassword = await tryFill(page, [
-        () => page.getByLabel(/password|contrase/i),
-        () => page.getByPlaceholder(/password|contrase/i),
-        () => page.locator('input[type="password"]'),
-        () => page.locator('input[name*="pass" i]'),
-        () => page.locator('input[id*="pass" i]'),
-      ], PASSWORD, { dryRun: true });
-
-      if (resp?.ok() && hasEmail && hasPassword) {
-        foundForm = true;
-        break;
-      }
-    } catch {
-      // intenta siguiente ruta
-    }
-  }
-
-  if (!foundForm) {
-    console.warn("[auth.setup] No se encontró formulario de login; guardando storage vacío.");
-    await page.context().storageState({ path: AUTH_FILE });
-    return;
-  }
-
-  // Rellena email/usuario
-  await tryFill(page, [
-    () => page.getByLabel(/email|correo/i),
-    () => page.getByPlaceholder(/email|correo/i),
-    () => page.locator('input[type="email"]'),
-    () => page.locator('input[name*="mail" i]'),
-    () => page.locator('input[name*="user" i]'),
-    () => page.locator('input[id*="mail" i]'),
-  ], EMAIL);
-
-  // Rellena contraseña
-  await tryFill(page, [
-    () => page.getByLabel(/password|contrase/i),
-    () => page.getByPlaceholder(/password|contrase/i),
-    () => page.locator('input[type="password"]'),
-    () => page.locator('input[name*="pass" i]'),
-    () => page.locator('input[id*="pass" i]'),
-  ], PASSWORD);
-
-  // Click en botón de enviar
-  const submitters = [
-    () => page.getByRole("button", { name: /iniciar sesi\u00F3n|login|entrar|acceder/i }),
-    () => page.locator('button[type="submit"]'),
-    () => page.locator('input[type="submit"]'),
-    () => page.getByRole("button") // último recurso
-  ];
-
-  let clicked = false;
-  for (const mk of submitters) {
-    const btn = mk();
-    try {
-      await btn.first().waitFor({ state: "visible", timeout: 2000 });
-      await btn.first().click({ timeout: 2000 });
-      clicked = true;
-      break;
-    } catch { /* sigue probando */ }
-  }
-
-  // Espera una redirección o algo de UI típica post-login (ajusta a tu app)
-  if (clicked) {
-    // Ejemplos: /dashboard, /panel, home
-    await page.waitForLoadState("networkidle", { timeout: 10_000 }).catch(() => {});
-  }
-
-  // Guarda el estado (cookies + localStorage)
-  await page.context().storageState({ path: AUTH_FILE });
-});
+import { mkdir, writeFile } from "fs/promises";
 
 /**
- * Intenta llenar el primer locator visible de una lista.
- * Si dryRun=true, solo verifica disponibilidad sin llenar.
+ * Env opcionales:
+ *  - API_URL            (default: http://127.0.0.1:5000)
+ *  - TEST_USER_EMAIL    (default: maestro@example.com)
+ *  - TEST_USER_PASSWORD (default: maestro123)
+ *  - AUTH_LS_KEY        (default: "token")
+ *  - PW_BASE_URL        (fallback si no viene de la config)
  */
-async function tryFill(
-  page: import("@playwright/test").Page,
-  makers: Array<() => import("@playwright/test").Locator>,
-  value: string,
-  opts: { dryRun?: boolean } = {}
-): Promise<boolean> {
-  for (const mk of makers) {
-    const loc = mk().first();
-    try {
-      await loc.waitFor({ state: "visible", timeout: 1500 });
-      if (!opts.dryRun) await loc.fill(value, { timeout: 1500 });
-      return true;
-    } catch { /* intenta siguiente */ }
-  }
-  return false;
-}
+const API_URL = process.env.API_URL ?? "http://127.0.0.1:5000"; // 👈 evita ::1 en Windows
+const EMAIL = process.env.TEST_USER_EMAIL ?? "maestro@example.com";
+const PASSWORD = process.env.TEST_USER_PASSWORD ?? "maestro123";
+const AUTH_LS_KEY = process.env.AUTH_LS_KEY ?? "token";
+
+const STORAGE_DIR = "e2e/.auth";
+const STORAGE_PATH = `${STORAGE_DIR}/storageState.json`;
+
+test("authenticate and save storageState (API)", async ({ request }, testInfo) => {
+  // 1) Login contra el backend
+  const resp = await request.post(`${API_URL}/api/auth/login`, {
+    data: { email: EMAIL, password: PASSWORD },
+    headers: { "content-type": "application/json" },
+  });
+  expect(resp.ok(), `Login failed: ${resp.status()} ${resp.statusText()}`).toBeTruthy();
+
+  const data = await resp.json();
+  const token = data?.token as string | undefined;
+  expect(token, "Login response missing 'token'").toBeTruthy();
+
+  // 2) Tomar baseURL del proyecto
+  const configBaseURL = testInfo.project?.use?.baseURL as string | undefined;
+  const base = configBaseURL ?? process.env.PW_BASE_URL ?? "http://localhost:4321";
+  const origin = new URL(base).origin;
+
+  // 3) Guardar storageState.json con el token en localStorage
+  const storageState = {
+    cookies: [] as any[],
+    origins: [{ origin, localStorage: [{ name: AUTH_LS_KEY, value: token! }] }],
+  };
+
+  await mkdir(STORAGE_DIR, { recursive: true });
+  await writeFile(STORAGE_PATH, JSON.stringify(storageState, null, 2), "utf-8");
+});

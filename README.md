@@ -1,3 +1,5 @@
+# Hasta ahora solo estoy haciendo el backend y el testing
+
 # Astro Starter Kit: Minimal
 
 ```sh

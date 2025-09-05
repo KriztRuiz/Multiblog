@@ -1,15 +1,26 @@
 {
-  "extends": "astro/tsconfigs/strict",
+  "extends": "astro/tsconfigs/base",
   "compilerOptions": {
+    "strict": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "lib": ["ES2023", "DOM"],
-    "types": ["vitest/globals", "@testing-library/jest-dom", "vite/client", "node"],
-    "baseUrl": ".",
-    "paths": {
-      "~/*": ["src/*"]
-    }
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": [
+      "vitest/globals",
+      "@testing-library/jest-dom",
+      "vite/client",
+      "astro/client"
+    ]
   },
-  "include": [".astro/types.d.ts", "src", "vitest.setup.ts", "astro.config.mjs", "vite.config.ts", "env.d.ts"],
+  "include": [
+    ".astro/types.d.ts",
+    "src",
+    "vitest.setup.ts",
+    "astro.config.mjs",
+    "vite.config.ts",
+    "e2e/**/*.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }
